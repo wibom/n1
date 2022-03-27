@@ -467,6 +467,101 @@ categorize_items <- function(d_items) {
     select(-itemtmp)
 }
 
+impute <- function(ds, items_or_sums = "items") {
+  impute_meal <- function(meal_data, all_meals, ...) {
+    
+    l <- list(...)
+    if ("reg_or_imputed" %in% names(meal_data)) {
+      # This meal is seen previously - return untouched
+      return (meal_data)
+    } else if (any(!is.na(meal_data$Item))) {
+      # Meal is registered; add `reg_or_imputed`
+      meal_data_2 <- meal_data %>% mutate(reg_or_imputed = "registered")
+      return (meal_data_2)
+    } else {
+      # Impute missing meal
+      # Pick at random a _registered_ meal that fulfills:
+      # 1) same type of meal
+      # 2) same weekday
+      # 3) within +/- 3 weeks of meal of interest
+      set.seed(42)
+      meal_data_2 <-
+        all_meals %>%
+        ungroup() %>%
+        filter(
+          meal == l$meal,
+          wday == l$wday,
+          year == l$year,
+          between(week, l$week - 3, l$week + 3)
+        ) %>%
+        mutate(
+          # Mark registered data to use for imputation
+          use2imp = map_lgl(
+            meal_data,
+            function (x) {
+              if ("reg_or_imputed" %in% names(x)) {
+                # previously processed: registered
+                r <- all(x$reg_or_imputed == "registered") & any(!is.na(x$Item))
+                return (r)
+              } else {
+                # previously unprocessed: registered
+                r <- any(!is.na(x$Item))
+                return (r)
+              }
+            }
+          )
+        ) %>%
+        filter(use2imp) %>%
+        filter(date == sample(.$date, size = 1)) %>%
+        select(meal_data) %>%
+        unnest(cols = c(meal_data)) %>%
+        mutate(reg_or_imputed = "imputed")
+      
+      return(meal_data_2)
+    }
+  }
+  if (items_or_sums == "items") {
+    
+    col_order <- names(ds)
+    
+    # Can't understand why this does not work!
+    # ds <-
+    #   ds %>%
+    #   group_by(date, meal) %>%
+    #   nest(meal_data = -c(year, mth_txt, week, date, wday, meal)) %>%
+    #   mutate(
+    #     meal_data2 = pmap(., impute_meal)  # <--- this works with map2...
+    #   )
+    
+    # Ugly workaround:
+    ds_temp <-
+      ds %>%
+      group_by(date, meal) %>%
+      nest(meal_data = -c(year, mth, mth_txt, week, date, wday, meal))
+    ds_temp$meal_data2 <- pmap(ds_temp, impute_meal, all_meals = ds_temp)
+    
+    d_items_imp <-
+      ds_temp %>%
+      ungroup() %>%
+      select(-meal_data) %>%
+      unnest(cols = meal_data2) %>%
+      select(all_of(c(col_order, "reg_or_imputed"))) %>%
+      arrange(date, rid) %>%
+      mutate(rid_imp = row_number()) %>%
+      relocate(rid_imp)
+    
+    return(d_items_imp)
+    
+  } else {
+    stop(
+      glue::glue(
+        "Error. Function not defined for `items_or_sums` = {items_or_sums}"
+      )
+    )
+  }
+  
+}
+
 parse_date_sums <- function(ln_start_date, ln_stop_date, diary, header) {
   parse_meal_tot <- function(meal) {
     meals_header <- header %>% str_replace("Date", "meal")
@@ -709,4 +804,13 @@ parse_items <- function(diary_file, dir_out) {
     glue("{diary_items$year[1]}_{mth}_fooddiary_items.rsd")
   )
   write_rds(diary_items, file = file_out)
+  
+  # Impute missing values
+  diary_items_imputed <- impute(diary_items)
+  file_out_imputed <- file.path(
+    str_c(dir_out, "imputed", sep = "_"),
+    glue("{diary_items$year[1]}_{mth}_fooddiary_items_imputed.rsd")
+  )
+  write_rds(diary_items_imputed, file = file_out_imputed)
 }
+
