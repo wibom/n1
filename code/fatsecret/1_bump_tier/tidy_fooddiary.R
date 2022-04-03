@@ -1,9 +1,9 @@
 here::i_am("code/fatsecret/1_bump_tier/tidy_fooddiary.R")
 library(here)
 library(tidyverse)
-source("code/fatsecret/1_bump_tier/parse_sums.R")
+source("code/fatsecret/1_bump_tier/tidy_fooddiary_utilities.R")
 
-force_reparse <- TRUE
+force_reparse <- FALSE
 
 # List files to tidy ----
 get_files_diff <- function(t1, t2) {
@@ -49,7 +49,7 @@ files_tier_2 <- list.files(here(dir_tier_2), recursive = TRUE)
 
 # Parse 
 files_to_bump <- 
-  if (force_reparse) {
+  if (force_reparse  | length(files_tier_2) == 0) {
     files_tier_1
   } else {
     get_files_diff(files_tier_1, files_tier_2)
@@ -64,4 +64,3 @@ dir.create(here(dir_tier_2, "items"), recursive = TRUE)
 files_to_bump %>% 
   here(dir_tier_1, .) %>% 
   walk(., parse_items, dir_out = here(dir_tier_2, "items"))
-

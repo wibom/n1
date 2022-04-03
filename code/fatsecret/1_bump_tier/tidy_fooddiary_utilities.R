@@ -92,12 +92,12 @@ format_date <- function(diary_date) {
       mth = case_when(
         mth_txt == "January"   ~ "01",
         mth_txt == "February"  ~ "02",
-        mth_txt == "Mars"      ~ "03",
+        mth_txt == "March"     ~ "03",
         mth_txt == "April"     ~ "04",
         mth_txt == "May"       ~ "05",
         mth_txt == "June"      ~ "06",
         mth_txt == "July"      ~ "07",
-        mth_txt == "August"   ~ "08",
+        mth_txt == "August"    ~ "08",
         mth_txt == "September" ~ "09",
         mth_txt == "October"   ~ "10",
         mth_txt == "November"  ~ "11",
@@ -139,7 +139,7 @@ make_missingness_explicit <- function(ds, sums_or_items = "items") {
       mth_txt = case_when(
         mth == "01" ~ "January",
         mth == "02" ~ "February",
-        mth == "03" ~ "Mars",
+        mth == "03" ~ "March",
         mth == "04" ~ "April",
         mth == "05" ~ "Maj",
         mth == "06" ~ "June",
@@ -793,24 +793,28 @@ parse_items <- function(diary_file, dir_out) {
     ) %>%
     select(year, week, date, mth_txt, wday, everything())
   
-  diary_items %>%
+  diary_items_formatted <-
+    diary_items %>%
     make_missingness_explicit() %>%
     format_units() %>%
     categorize_items()
   
-  mth <- month(diary_items$date[1]) %>% str_pad(width = 2, pad = "0")
+  mth <- month(diary_items_formatted$date[1]) %>% str_pad(width = 2, pad = "0")
   file_out <- file.path(
     dir_out, 
     glue("{diary_items$year[1]}_{mth}_fooddiary_items.rsd")
   )
-  write_rds(diary_items, file = file_out)
+  write_rds(diary_items_formatted, file = file_out)
   
   # Impute missing values
-  diary_items_imputed <- impute(diary_items)
+  diary_items_formatted_imputed <- impute(diary_items_formatted)
   file_out_imputed <- file.path(
     str_c(dir_out, "imputed", sep = "_"),
     glue("{diary_items$year[1]}_{mth}_fooddiary_items_imputed.rsd")
   )
-  write_rds(diary_items_imputed, file = file_out_imputed)
+  if (!dir.exists(dirname(file_out_imputed))) {
+    dir.create(dirname(file_out_imputed))
+  }
+  write_rds(diary_items_formatted_imputed, file = file_out_imputed)
 }
 
