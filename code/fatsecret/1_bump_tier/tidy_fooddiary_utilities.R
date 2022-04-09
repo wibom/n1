@@ -359,7 +359,7 @@ categorize_items <- function(d_items) {
             yoghurt|gräddfil\\
             )"
           )
-        ) ~ "Dairy",
+        ) ~ "Mejeri",
         
         str_detect(
           itemtmp,
@@ -461,7 +461,7 @@ categorize_items <- function(d_items) {
         str_detect(itemtmp, "whey-100") ~ "Protein",
         str_detect(itemtmp, "(müsli|musli|axa apple|russin)") ~ "Müsli",
         str_detect(itemtmp, "(potatis|pommes|gnocchi)") ~ "Potatis/Pommes",
-        TRUE ~ "Other"
+        TRUE ~ "Övrigt"
       )
     ) %>%
     select(-itemtmp)
@@ -798,7 +798,7 @@ parse_items <- function(diary_file, dir_out) {
     make_missingness_explicit() %>%
     format_units() %>%
     categorize_items()
-  
+
   mth <- month(diary_items_formatted$date[1]) %>% str_pad(width = 2, pad = "0")
   file_out <- file.path(
     dir_out, 
